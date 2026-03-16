@@ -1,5 +1,9 @@
 # go-ctxlog
 
+[![CI](https://github.com/philiprehberger/go-ctxlog/actions/workflows/ci.yml/badge.svg)](https://github.com/philiprehberger/go-ctxlog/actions/workflows/ci.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/philiprehberger/go-ctxlog.svg)](https://pkg.go.dev/github.com/philiprehberger/go-ctxlog)
+[![License](https://img.shields.io/github/license/philiprehberger/go-ctxlog)](LICENSE)
+
 Context-aware structured logging helpers for Go's `log/slog`.
 
 ## Installation
@@ -61,6 +65,13 @@ http.ListenAndServe(":8080", wrapped)
 | `From(ctx, logger)` | Enrich a specific `*slog.Logger` with context fields |
 | `Middleware(next)` | HTTP middleware that generates a UUID v4 request ID |
 | `MiddlewareWithHeader(header)` | Middleware that reads request ID from a header, or generates one |
+
+## Development
+
+```bash
+go test ./...
+go vet ./...
+```
 
 ## License
 
