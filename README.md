@@ -4,7 +4,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/philiprehberger/go-ctxlog.svg)](https://pkg.go.dev/github.com/philiprehberger/go-ctxlog)
 [![License](https://img.shields.io/github/license/philiprehberger/go-ctxlog)](LICENSE)
 
-Context-aware structured logging helpers for Go's `log/slog`.
+Context-aware structured logging helpers for Go's `log/slog`
 
 ## Installation
 
