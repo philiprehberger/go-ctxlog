@@ -1,8 +1,6 @@
 # go-ctxlog
 
-[![CI](https://github.com/philiprehberger/go-ctxlog/actions/workflows/ci.yml/badge.svg)](https://github.com/philiprehberger/go-ctxlog/actions/workflows/ci.yml)
-[![Go Reference](https://pkg.go.dev/badge/github.com/philiprehberger/go-ctxlog.svg)](https://pkg.go.dev/github.com/philiprehberger/go-ctxlog)
-[![License](https://img.shields.io/github/license/philiprehberger/go-ctxlog)](LICENSE)
+[![CI](https://github.com/philiprehberger/go-ctxlog/actions/workflows/ci.yml/badge.svg)](https://github.com/philiprehberger/go-ctxlog/actions/workflows/ci.yml) [![Go Reference](https://pkg.go.dev/badge/github.com/philiprehberger/go-ctxlog.svg)](https://pkg.go.dev/github.com/philiprehberger/go-ctxlog) [![License](https://img.shields.io/github/license/philiprehberger/go-ctxlog)](LICENSE)
 
 Context-aware structured logging helpers for Go's `log/slog`
 
