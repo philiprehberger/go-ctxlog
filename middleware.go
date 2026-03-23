@@ -3,7 +3,9 @@ package ctxlog
 import (
 	"crypto/rand"
 	"fmt"
+	"log/slog"
 	"net/http"
+	"time"
 )
 
 // Middleware generates a UUID v4 request ID, injects it into the request
@@ -33,6 +35,83 @@ func MiddlewareWithHeader(headerName string) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+// MiddlewareConfig configures the behavior of MiddlewareWithConfig.
+type MiddlewareConfig struct {
+	HeaderName   string        // request ID header (default "X-Request-ID")
+	GenerateID   func() string // custom ID generator (default UUID v4)
+	LogRequests  bool          // log incoming requests
+	LogResponses bool          // log completed responses
+}
+
+// MiddlewareWithConfig returns middleware configured with the provided options.
+// Zero-value fields use sensible defaults: HeaderName defaults to "X-Request-ID"
+// and GenerateID defaults to UUID v4 generation.
+func MiddlewareWithConfig(cfg MiddlewareConfig) func(http.Handler) http.Handler {
+	if cfg.HeaderName == "" {
+		cfg.HeaderName = "X-Request-ID"
+	}
+	if cfg.GenerateID == nil {
+		cfg.GenerateID = newUUID
+	}
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			id := r.Header.Get(cfg.HeaderName)
+			if id == "" {
+				id = cfg.GenerateID()
+			}
+			ctx := WithRequestID(r.Context(), id)
+			w.Header().Set("X-Request-ID", id)
+
+			if cfg.LogRequests {
+				slog.InfoContext(ctx, "request started",
+					"method", r.Method,
+					"path", r.URL.Path,
+					"request_id", id,
+				)
+			}
+
+			if cfg.LogResponses {
+				start := time.Now()
+				sw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
+				next.ServeHTTP(sw, r.WithContext(ctx))
+				slog.InfoContext(ctx, "request completed",
+					"method", r.Method,
+					"path", r.URL.Path,
+					"status", sw.status,
+					"duration_ms", time.Since(start).Milliseconds(),
+					"request_id", id,
+				)
+				return
+			}
+
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// statusWriter wraps http.ResponseWriter to capture the status code.
+type statusWriter struct {
+	http.ResponseWriter
+	status      int
+	wroteHeader bool
+}
+
+func (sw *statusWriter) WriteHeader(code int) {
+	if !sw.wroteHeader {
+		sw.status = code
+		sw.wroteHeader = true
+	}
+	sw.ResponseWriter.WriteHeader(code)
+}
+
+func (sw *statusWriter) Write(b []byte) (int, error) {
+	if !sw.wroteHeader {
+		sw.wroteHeader = true
+	}
+	return sw.ResponseWriter.Write(b)
 }
 
 // newUUID generates a UUID v4 using crypto/rand.

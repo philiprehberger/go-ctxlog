@@ -16,6 +16,10 @@ const (
 	attrsKey
 	// requestIDKey stores the request ID string in the context.
 	requestIDKey
+	// correlationIDKey stores the correlation ID string in the context.
+	correlationIDKey
+	// traceIDKey stores the trace ID string in the context.
+	traceIDKey
 )
 
 // With attaches slog key-value pairs to the context. The args should be
@@ -51,6 +55,44 @@ func RequestID(ctx context.Context) string {
 	return id
 }
 
+// WithCorrelationID attaches a correlation ID to the context. Correlation IDs
+// are used to group related requests across services.
+func WithCorrelationID(ctx context.Context, id string) context.Context {
+	return context.WithValue(ctx, correlationIDKey, id)
+}
+
+// CorrelationID extracts the correlation ID from the context. Returns an empty
+// string if no correlation ID has been set.
+func CorrelationID(ctx context.Context) string {
+	id, _ := ctx.Value(correlationIDKey).(string)
+	return id
+}
+
+// WithTraceID attaches a trace ID to the context. Trace IDs are used for
+// distributed tracing across service boundaries.
+func WithTraceID(ctx context.Context, id string) context.Context {
+	return context.WithValue(ctx, traceIDKey, id)
+}
+
+// TraceID extracts the trace ID from the context. Returns an empty string if
+// no trace ID has been set.
+func TraceID(ctx context.Context) string {
+	id, _ := ctx.Value(traceIDKey).(string)
+	return id
+}
+
+// Fields extracts all typed slog.Attr values stored in the context via
+// WithAttrs. Returns nil if no attributes have been set.
+func Fields(ctx context.Context) []slog.Attr {
+	attrs, _ := ctx.Value(attrsKey).([]slog.Attr)
+	if len(attrs) == 0 {
+		return nil
+	}
+	result := make([]slog.Attr, len(attrs))
+	copy(result, attrs)
+	return result
+}
+
 // Logger returns slog.Default() enriched with all fields, attributes, and
 // request ID stored in the context.
 func Logger(ctx context.Context) *slog.Logger {
@@ -74,6 +116,14 @@ func From(ctx context.Context, logger *slog.Logger) *slog.Logger {
 
 	if id := RequestID(ctx); id != "" {
 		logger = logger.With("request_id", id)
+	}
+
+	if id := CorrelationID(ctx); id != "" {
+		logger = logger.With("correlation_id", id)
+	}
+
+	if id := TraceID(ctx); id != "" {
+		logger = logger.With("trace_id", id)
 	}
 
 	return logger

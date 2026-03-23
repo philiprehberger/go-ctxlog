@@ -162,6 +162,141 @@ func TestLoggerIncludesRequestID(t *testing.T) {
 	}
 }
 
+func TestWithCorrelationIDRoundTrip(t *testing.T) {
+	ctx := context.Background()
+	id := "corr-abc-123"
+	ctx = WithCorrelationID(ctx, id)
+
+	got := CorrelationID(ctx)
+	if got != id {
+		t.Errorf("expected correlation ID %q, got %q", id, got)
+	}
+}
+
+func TestCorrelationIDReturnsEmptyWhenNotSet(t *testing.T) {
+	ctx := context.Background()
+	got := CorrelationID(ctx)
+	if got != "" {
+		t.Errorf("expected empty correlation ID, got %q", got)
+	}
+}
+
+func TestWithTraceIDRoundTrip(t *testing.T) {
+	ctx := context.Background()
+	id := "trace-xyz-789"
+	ctx = WithTraceID(ctx, id)
+
+	got := TraceID(ctx)
+	if got != id {
+		t.Errorf("expected trace ID %q, got %q", id, got)
+	}
+}
+
+func TestTraceIDReturnsEmptyWhenNotSet(t *testing.T) {
+	ctx := context.Background()
+	got := TraceID(ctx)
+	if got != "" {
+		t.Errorf("expected empty trace ID, got %q", got)
+	}
+}
+
+func TestFromIncludesCorrelationID(t *testing.T) {
+	ctx := context.Background()
+	ctx = WithCorrelationID(ctx, "corr-001")
+
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{
+		ReplaceAttr: stripTimeAndLevel,
+	}))
+	From(ctx, logger).Info("test")
+
+	out := buf.String()
+	if !strings.Contains(out, "correlation_id=corr-001") {
+		t.Errorf("expected correlation_id=corr-001 in output, got: %s", out)
+	}
+}
+
+func TestFromIncludesTraceID(t *testing.T) {
+	ctx := context.Background()
+	ctx = WithTraceID(ctx, "trace-002")
+
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{
+		ReplaceAttr: stripTimeAndLevel,
+	}))
+	From(ctx, logger).Info("test")
+
+	out := buf.String()
+	if !strings.Contains(out, "trace_id=trace-002") {
+		t.Errorf("expected trace_id=trace-002 in output, got: %s", out)
+	}
+}
+
+func TestFieldsReturnsNilWhenEmpty(t *testing.T) {
+	ctx := context.Background()
+	got := Fields(ctx)
+	if got != nil {
+		t.Errorf("expected nil, got %v", got)
+	}
+}
+
+func TestFieldsReturnsAttachedAttrs(t *testing.T) {
+	ctx := context.Background()
+	ctx = WithAttrs(ctx, slog.String("k1", "v1"), slog.Int("k2", 99))
+
+	got := Fields(ctx)
+	if len(got) != 2 {
+		t.Fatalf("expected 2 attrs, got %d", len(got))
+	}
+	if got[0].Key != "k1" || got[0].Value.String() != "v1" {
+		t.Errorf("unexpected first attr: %v", got[0])
+	}
+	if got[1].Key != "k2" || got[1].Value.String() != "99" {
+		t.Errorf("unexpected second attr: %v", got[1])
+	}
+}
+
+func TestFieldsReturnsCopy(t *testing.T) {
+	ctx := context.Background()
+	ctx = WithAttrs(ctx, slog.String("k", "v"))
+
+	got := Fields(ctx)
+	got[0] = slog.String("modified", "bad")
+
+	original := Fields(ctx)
+	if original[0].Key != "k" {
+		t.Error("Fields returned a reference instead of a copy")
+	}
+}
+
+func TestContextChainingAllIDs(t *testing.T) {
+	ctx := context.Background()
+	ctx = WithRequestID(ctx, "req-1")
+	ctx = WithCorrelationID(ctx, "corr-1")
+	ctx = WithTraceID(ctx, "trace-1")
+	ctx = With(ctx, "env", "test")
+	ctx = WithAttrs(ctx, slog.String("service", "api"))
+
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{
+		ReplaceAttr: stripTimeAndLevel,
+	}))
+	From(ctx, logger).Info("chained")
+
+	out := buf.String()
+	for _, want := range []string{
+		"request_id=req-1",
+		"correlation_id=corr-1",
+		"trace_id=trace-1",
+		"env=test",
+		"service=api",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("expected %s in output, got: %s", want, out)
+		}
+	}
+}
+
 // stripTimeAndLevel removes time and level attrs to simplify test output.
 func stripTimeAndLevel(groups []string, a slog.Attr) slog.Attr {
 	if a.Key == slog.TimeKey || a.Key == slog.LevelKey {
